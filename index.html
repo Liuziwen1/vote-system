@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>史上最牛投票系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            background: transparent;
+        }
+        .fullscreen-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('机器人之梦.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -2;
+            opacity: 0.8;
+        }
+        .cursor-follower {
+            position: fixed;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,215,0,0.4) 30%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+            transform: translate(-50%, -50%);
+            transition: transform 0.08s ease-out, opacity 0.2s ease;
+            opacity: 0.7;
+            filter: blur(15px);
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+        .hidden { display: none !important; }
+        button {
+            padding: 8px 16px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button.danger { background: #e53935; }
+        button.edit { background: #fbbc05; }
+        button.add-item { background: #34a853; }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .project {
+            border: 1px solid #eee;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .vote-option {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+        }
+        #loginBox { margin-bottom: 20px; }
+        .user-info { margin-bottom: 15px; font-weight: bold; }
+        .member-select-wrap {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 8px 0;
+        }
+        .tag {
+            background: #e8f0fe;
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 4px;
+        }
+        .tag button {
+            background: transparent;
+            color: #d93025;
+            padding: 0 4px;
+            margin-left: 4px;
+            font-size: 14px;
+        }
+        .tip { color: #666; font-size: 14px; }
+        .admin-panel {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #ffcc80;
+        }
+        .vote-record {
+            padding: 8px;
+            background: #f9f9f9;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+        .change-pwd-box {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #dee2e6;
+        }
+        .admin-member-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        .admin-member-item input { width: 120px; margin: 0; }
+        .admin-project-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 8px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        .admin-project-controls { display: flex; gap: 8px; }
+        .batch-project-item {
+            border: 1px dashed #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .batch-project-item h4 { margin-top: 0; color: #4285f4; }
+    </style>
+</head>
+<body>
+    <div class="fullscreen-bg"></div>
+    <div class="cursor-follower"></div>
+
+    <div class="container">
+        <h1>史上最牛投票系统</h1>
+
+        <div id="loginBox">
+            <input type="text" id="username" placeholder="输入你的名字">
+            <input type="password" id="password" placeholder="输入你的密码">
+            <button onclick="login()">登录</button>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <div class="user-info">
+                当前用户：<span id="userName"></span>
+                <button class="danger" onclick="logout()">退出登录</button>
+                <span id="selfProjectTip" class="tip"></span>
+            </div>
+
+            <div class="change-pwd-box">
+                <h4>修改个人密码</h4>
+                <input type="password" id="oldPwd" placeholder="输入当前密码">
+                <input type="password" id="newPwd" placeholder="输入新密码">
+                <input type="password" id="confirmPwd" placeholder="确认新密码">
+                <button onclick="changePassword()">保存修改密码</button>
+                <div id="pwdMsg" style="font-size:14px;margin-top:5px;"></div>
+            </div>
+
+            <div id="adminPanel" class="hidden admin-panel">
+                <h3>🔑 管理员后台（刘子雯专属）</h3>
+                <button onclick="toggleAdminMember()">成员管理（含密码修改）</button>
+                <button onclick="toggleAdminVotes()">查看真实投票</button>
+                <button onclick="toggleAdminProjects()">作品管理（增删改）</button>
+                
+                <!-- ========== 【一键清空所有数据】按钮 ========== -->
+                <button class="danger" onclick="clearAllData()" style="background:#d32f2f;padding:8px 20px;">
+                    ⚠️ 一键清空所有数据
+                </button>
+
+                <div id="adminMemberManage" class="hidden">
+                    <h4>全体成员列表（可修改密码）</h4>
+                    <div id="adminMemberList"></div>
+                    <div style="margin-top:10px;">
+                        <input type="text" id="newMember" placeholder="输入新成员名字">
+                        <input type="password" id="newMemberPwd" placeholder="新成员初始密码（默认123456）">
+                        <button onclick="addMember()">添加成员</button>
+                    </div>
+                </div>
+
+                <div id="adminProjectManage" class="hidden">
+                    <h4>作品管理（管理员可编辑/删除所有作品）</h4>
+                    <div id="adminProjectList"></div>
+                    <div style="margin-top:15px;padding-top:15px;border-top:1px solid #ddd;">
+                        <h5>管理员新增作品</h5>
+                        <input type="text" id="adminProjectTitle" placeholder="作品名称">
+                        <input type="text" id="adminVideoPath" placeholder="视频路径：videos/xxx.mp4">
+                        <div class="member-select-wrap">
+                            <select id="adminMemberSelect">
+                                <option value="">-- 选择成员 --</option>
+                            </select>
+                            <div id="adminSelectedMemberTags"></div>
+                        </div>
+                        <button onclick="adminAddProject()">新增作品</button>
+                    </div>
+                </div>
+
+                <div id="adminVoteRecords" class="hidden">
+                    <h4>真实投票记录（含姓名）</h4>
+                    <div id="adminVoteList"></div>
+                </div>
+            </div>
+
+            <div>
+                <h3>批量上传作品（填写视频路径）</h3>
+                <p class="tip">格式示例：videos/作品A.mp4  视频请统一交给管理员放入 videos 文件夹</p>
+                <button class="add-item" onclick="addBatchProjectItem()">+ 新增作品项</button>
+                <div id="batchProjectContainer">
+                    <div class="batch-project-item" data-index="0">
+                        <h4>作品 1</h4>
+                        <input type="text" class="batch-project-title" placeholder="作品名称">
+                        <input type="text" class="batch-video-path" placeholder="视频路径：videos/xxx.mp4">
+                        <p class="tip">选择本组成员（自动包含你）</p>
+                        <div class="member-select-wrap">
+                            <select class="batch-member-select">
+                                <option value="">-- 选择成员 --</option>
+                            </select>
+                            <div class="batch-selected-tags"></div>
+                        </div>
+                        <button class="danger" onclick="removeBatchProjectItem(this)">删除此项</button>
+                    </div>
+                </div>
+                <button onclick="submitBatchProjects()" style="margin-top:15px;">提交所有作品</button>
+            </div>
+
+            <hr>
+
+            <div>
+                <h3>匿名投票（1名3分、2名2分、3名1分）</h3>
+                <p class="tip">本组所有作品自动隐藏，不可投</p>
+                <div class="vote-option"><label>第1名</label><select id="rank1"></select></div>
+                <div class="vote-option"><label>第2名</label><select id="rank2"></select></div>
+                <div class="vote-option"><select id="rank3"></select><label>第3名</label></div>
+                <button onclick="submitVote()">提交投票</button>
+                <div id="voteMsg" style="color: #d93025;"></div>
+            </div>
+
+            <hr>
+
+            <div>
+                <h3>所有作品（成员对外匿名）</h3>
+                <div id="projectList"></div>
+            </div>
+
+            <hr>
+
+            <div>
+                <h3>实时投票排名（多作品独立排名）</h3>
+                <div id="rankResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const follower = document.querySelector('.cursor-follower');
+        document.addEventListener('mousemove', (e) => {
+            follower.style.left = `${e.clientX}px`;
+            follower.style.top = `${e.clientY}px`;
+        });
+
+        const ADMIN = "刘子雯";
+        let currentUser = null;
+        let adminSelectedMembers = [];
+        let batchSelectedMembers = {};
+
+        // 本地存储工具
+        function loadFromStorage(key, defaultValue) {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : defaultValue;
+        }
+        function saveToStorage(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        // 默认用户列表
+        const DEFAULT_USER_LIST = [
+            { name: "张佳浩", pwd: "123456" },
+            { name: "刘畅", pwd: "123456" },
+            { name: "李航漫", pwd: "123456" },
+            { name: "孙韵竹", pwd: "123456" },
+            { name: "周至柔", pwd: "123456" },
+            { name: "谭砚", pwd: "123456" },
+            { name: "苗润垚", pwd: "123456" },
+            { name: "沈熠飞", pwd: "123456" },
+            { name: "于家乐", pwd: "123456" },
+            { name: "刘海阔", pwd: "123456" },
+            { name: "杨岩青", pwd: "123456" },
+            { name: "许岚麟", pwd: "123456" },
+            { name: "陈文翰", pwd: "123456" },
+            { name: "张宝琦", pwd: "123456" },
+            { name: "吴灏洋", pwd: "123456" },
+            { name: "丁一峰", pwd: "123456" },
+            { name: "汪俊翌", pwd: "123456" },
+            { name: "许博皓", pwd: "123456" },
+            { name: "王艺", pwd: "123456" },
+            { name: "王超", pwd: "123456" },
+            { name: "熊钊", pwd: "123456" },
+            { name: "白天旭", pwd: "123456" },
+            { name: "许勇", pwd: "123456" },
+            { name: "蒋小瑞", pwd: "123456" },
+            { name: "李昊", pwd: "123456" },
+            { name: "谭孝阳", pwd: "123456" },
+            { name: "薛澎博", pwd: "123456" },
+            { name: "金堃", pwd: "123456" },
+            { name: "陆俊昊", pwd: "123456" },
+            { name: "陈欣然", pwd: "123456" },
+            { name: "彭晨宇", pwd: "123456" },
+            { name: "雷超", pwd: "123456" },
+            { name: "袁靖喆", pwd: "123456" },
+            { name: "宋永琦", pwd: "123456" },
+            { name: "孟金泽", pwd: "123456" },
+            { name: "程湘谊", pwd: "123456" },
+            { name: "刘子雯", pwd: "123456" }
+        ];
+
+        // 加载持久化数据
+        let USER_LIST = loadFromStorage('vote_system_user_list', DEFAULT_USER_LIST);
+        let projects = loadFromStorage('vote_system_projects', []);
+        let votes = loadFromStorage('vote_system_votes', []);
+        let ALL_MEMBERS = USER_LIST.map(u => u.name);
+
+        // ========== 管理员：一键清空所有数据 ==========
+        function clearAllData() {
+            if (!confirm("⚠️ 警告：此操作将清空所有数据！\n\n包括：作品、投票、成员密码全部恢复默认！\n\n确定要继续吗？")) {
+                return;
+            }
+
+            // 清空本地存储
+            localStorage.removeItem('vote_system_user_list');
+            localStorage.removeItem('vote_system_projects');
+            localStorage.removeItem('vote_system_votes');
+
+            // 重置内存数据
+            USER_LIST = JSON.parse(JSON.stringify(DEFAULT_USER_LIST));
+            projects = [];
+            votes = [];
+            ALL_MEMBERS = USER_LIST.map(u => u.name);
+
+            alert("✅ 所有数据已清空！系统已恢复出厂设置！");
+            
+            // 强制退出并刷新
+            logout();
+            location.reload();
+        }
+
+        // 初始化所有成员下拉选择框
+        function initAllMemberSelects() {
+            const adminSel = document.getElementById("adminMemberSelect");
+            adminSel.innerHTML = '<option value="">-- 选择成员 --</option>';
+            ALL_MEMBERS.forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.innerText = name;
+                adminSel.appendChild(opt);
+            });
+            adminSel.onchange = function () {
+                const val = this.value;
+                if (val && !adminSelectedMembers.includes(val)) {
+                    adminSelectedMembers.push(val);
+                    renderAdminMemberTags();
+                }
+                this.value = "";
+            }
+
+            document.querySelectorAll('.batch-member-select').forEach((sel, index) => {
+                sel.innerHTML = '<option value="">-- 选择成员 --</option>';
+                ALL_MEMBERS.forEach(name => {
+                    const opt = document.createElement("option");
+                    opt.value = name;
+                    opt.innerText = name;
+                    sel.appendChild(opt);
+                });
+                sel.onchange = function () {
+                    const val = this.value;
+                    const itemIndex = this.closest('.batch-project-item').dataset.index;
+                    if (!batchSelectedMembers[itemIndex]) batchSelectedMembers[itemIndex] = [];
+                    if (val && !batchSelectedMembers[itemIndex].includes(val)) {
+                        batchSelectedMembers[itemIndex].push(val);
+                        renderBatchMemberTags(itemIndex);
+                    }
+                    this.value = "";
+                }
+            });
+        }
+
+        function renderAdminMemberTags() {
+            const wrap = document.getElementById("adminSelectedMemberTags");
+            wrap.innerHTML = "";
+            adminSelectedMembers.forEach(name => {
+                const span = document.createElement("span");
+                span.className = "tag";
+                span.innerHTML = `${name} <button onclick="removeAdminMember('${name}')">×</button>`;
+                wrap.appendChild(span);
+            });
+        }
+        function renderBatchMemberTags(itemIndex) {
+            const wrap = document.querySelector(`.batch-project-item[data-index="${itemIndex}"] .batch-selected-tags`);
+            wrap.innerHTML = "";
+            if (!batchSelectedMembers[itemIndex]) return;
+            batchSelectedMembers[itemIndex].forEach(name => {
+                const span = document.createElement("span");
+                span.className = "tag";
+                span.innerHTML = `${name} <button onclick="removeBatchMember('${name}', ${itemIndex})">×</button>`;
+                wrap.appendChild(span);
+            });
+        }
+        function removeAdminMember(name) {
+            const idx = adminSelectedMembers.indexOf(name);
+            if (idx > -1) adminSelectedMembers.splice(idx, 1);
+            renderAdminMemberTags();
+        }
+        function removeBatchMember(name, itemIndex) {
+            if (!batchSelectedMembers[itemIndex]) return;
+            const idx = batchSelectedMembers[itemIndex].indexOf(name);
+            if (idx > -1) batchSelectedMembers[itemIndex].splice(idx, 1);
+            renderBatchMemberTags(itemIndex);
+        }
+
+        // 新增批量作品项
+        function addBatchProjectItem() {
+            const container = document.getElementById("batchProjectContainer");
+            const itemCount = container.children.length;
+            const newIndex = itemCount;
+            const newItem = document.createElement("div");
+            newItem.className = "batch-project-item";
+            newItem.dataset.index = newIndex;
+            newItem.innerHTML = `
+                <h4>作品 ${newIndex + 1}</h4>
+                <input type="text" class="batch-project-title" placeholder="作品名称">
+                <input type="text" class="batch-video-path" placeholder="视频路径：videos/xxx.mp4">
+                <p class="tip">选择本组成员（自动包含你）</p>
+                <div class="member-select-wrap">
+                    <select class="batch-member-select">
+                        <option value="">-- 选择成员 --</option>
+                    </select>
+                    <div class="batch-selected-tags"></div>
+                </div>
+                <button class="danger" onclick="removeBatchProjectItem(this)">删除此项</button>
+            `;
+            container.appendChild(newItem);
+            initAllMemberSelects();
+            batchSelectedMembers[newIndex] = [];
+        }
+        function removeBatchProjectItem(btn) {
+            const item = btn.closest('.batch-project-item');
+            const itemIndex = item.dataset.index;
+            const container = document.getElementById("batchProjectContainer");
+            if (container.children.length <= 1) {
+                alert("至少保留1个作品项！");
+                return;
+            }
+            delete batchSelectedMembers[itemIndex];
+            item.remove();
+            document.querySelectorAll('.batch-project-item').forEach((it, idx) => {
+                it.dataset.index = idx;
+                it.querySelector('h4').innerText = `作品 ${idx + 1}`;
+            });
+        }
+
+        // 提交批量作品（仅保存路径文本）
+        function submitBatchProjects() {
+            const projectItems = document.querySelectorAll('.batch-project-item');
+            let successCount = 0;
+            for (let i = 0; i < projectItems.length; i++) {
+                const item = projectItems[i];
+                const index = i;
+                const title = item.querySelector('.batch-project-title').value.trim();
+                const videoPath = item.querySelector('.batch-video-path').value.trim();
+                const selectedMembers = batchSelectedMembers[index] || [];
+
+                if (!title || !videoPath || selectedMembers.length === 0) {
+                    alert(`作品 ${index + 1} 信息不完整，跳过提交！`);
+                    continue;
+                }
+                let finalMembers = [...selectedMembers];
+                if (!finalMembers.includes(currentUser)) finalMembers.push(currentUser);
+
+                const project = {
+                    id: Date.now() + index,
+                    title,
+                    members: finalMembers,
+                    video: videoPath,
+                    score: 0
+                };
+                projects.push(project);
+                successCount++;
+
+                item.querySelector('.batch-project-title').value = "";
+                item.querySelector('.batch-video-path').value = "";
+                batchSelectedMembers[index] = [];
+                renderBatchMemberTags(index);
+            }
+            if (successCount > 0) {
+                saveToStorage('vote_system_projects', projects);
+                alert(`成功提交 ${successCount} 个作品！`);
+                render();
+            } else {
+                alert("没有可提交的有效作品！");
+            }
+        }
+
+        // 登录
+        function login() {
+            const name = document.getElementById("username").value.trim();
+            const pwd = document.getElementById("password").value.trim();
+            if (!name || !pwd) return alert("请输入姓名+密码");
+            const user = USER_LIST.find(u => u.name === name && u.pwd === pwd);
+            if (!user) return alert("姓名或密码错误！");
+            currentUser = name;
+            initAllMemberSelects();
+            render();
+        }
+        // 退出登录
+        function logout() {
+            currentUser = null;
+            adminSelectedMembers = [];
+            batchSelectedMembers = {};
+            document.getElementById("adminSelectedMemberTags").innerHTML = "";
+            document.getElementById("pwdMsg").innerText = "";
+            document.getElementById("batchProjectContainer").innerHTML = `
+                <div class="batch-project-item" data-index="0">
+                    <h4>作品 1</h4>
+                    <input type="text" class="batch-project-title" placeholder="作品名称">
+                    <input type="text" class="batch-video-path" placeholder="视频路径：videos/xxx.mp4">
+                    <p class="tip">选择本组成员（自动包含你）</p>
+                    <div class="member-select-wrap">
+                        <select class="batch-member-select">
+                            <option value="">-- 选择成员 --</option>
+                        </select>
+                        <div class="batch-selected-tags"></div>
+                    </div>
+                    <button class="danger" onclick="removeBatchProjectItem(this)">删除此项</button>
+                </div>
+            `;
+            render();
+        }
+
+        // 修改密码
+        function changePassword() {
+            const oldPwd = document.getElementById("oldPwd").value.trim();
+            const newPwd = document.getElementById("newPwd").value.trim();
+            const confirmPwd = document.getElementById("confirmPwd").value.trim();
+            const msg = document.getElementById("pwdMsg");
+            if (!oldPwd || !newPwd || !confirmPwd) {
+                msg.style.color = "red"; return msg.innerText = "请填写完整";
+            }
+            if (newPwd !== confirmPwd) {
+                msg.style.color = "red"; return msg.innerText = "两次新密码不一致";
+            }
+            const user = USER_LIST.find(u => u.name === currentUser);
+            if (user.pwd !== oldPwd) {
+                msg.style.color = "red"; return msg.innerText = "当前密码错误";
+            }
+            user.pwd = newPwd;
+            saveToStorage('vote_system_user_list', USER_LIST);
+            msg.style.color = "green"; msg.innerText = "密码修改成功！下次登录生效";
+            document.getElementById("oldPwd").value = "";
+            document.getElementById("newPwd").value = "";
+            document.getElementById("confirmPwd").value = "";
+        }
+
+        // 提交投票
+        function submitVote() {
+            const r1 = document.getElementById("rank1").value;
+            const r2 = document.getElementById("rank2").value;
+            const r3 = document.getElementById("rank3").value;
+            const msgBox = document.getElementById("voteMsg");
+            msgBox.innerText = "";
+            if (!r1 || !r2 || !r3) return msgBox.innerText = "请完成投票";
+            if (r1 === r2 || r2 === r3 || r1 === r3) return msgBox.innerText = "不可重复选择";
+
+            const selfProjectIds = projects.filter(p => p.members.includes(currentUser)).map(p => p.id.toString());
+            if ([r1, r2, r3].some(id => selfProjectIds.includes(id))) {
+                return msgBox.innerText = "禁止投本组任何作品！";
+            }
+            if (votes.find(v => v.user === currentUser)) {
+                return msgBox.innerText = "已投过票";
+            }
+            votes.push({ user: currentUser, rank1: r1, rank2: r2, rank3: r3 });
+            saveToStorage('vote_system_votes', votes);
+            msgBox.style.color = "#2e7d32";
+            msgBox.innerText = "投票成功！";
+            calcScores();
+            render();
+        }
+
+        // 计算得分
+        function calcScores() {
+            projects.forEach(p => p.score = 0);
+            votes.forEach(v => {
+                const p1 = projects.find(p => p.id == v.rank1);
+                const p2 = projects.find(p => p.id == v.rank2);
+                const p3 = projects.find(p => p.id == v.rank3);
+                if (p1) p1.score += 3;
+                if (p2) p2.score += 2;
+                if (p3) p3.score += 1;
+            });
+            saveToStorage('vote_system_projects', projects);
+        }
+
+        // 管理员面板切换
+        function toggleAdminMember() {
+            document.getElementById("adminMemberManage").classList.toggle("hidden");
+            renderAdminMemberList();
+        }
+        function toggleAdminVotes() {
+            document.getElementById("adminVoteRecords").classList.toggle("hidden");
+            renderAdminVoteRecords();
+        }
+        function toggleAdminProjects() {
+            document.getElementById("adminProjectManage").classList.toggle("hidden");
+            renderAdminProjectList();
+        }
+
+        // 管理员-成员管理
+        function renderAdminMemberList() {
+            const box = document.getElementById("adminMemberList");
+            box.innerHTML = "";
+            USER_LIST.forEach(user => {
+                const div = document.createElement("div");
+                div.className = "admin-member-item";
+                div.innerHTML = `
+                    <span>${user.name}</span>
+                    <input type="password" id="pwd_${user.name}" placeholder="新密码" value="${user.pwd}">
+                    <button class="edit" onclick="updateMemberPwd('${user.name}')">保存密码</button>
+                    ${user.name === ADMIN ? '' : `<button class="danger" onclick="deleteMember('${user.name}')">删除成员</button>`}
+                `;
+                box.appendChild(div);
+            });
+        }
+        function updateMemberPwd(userName) {
+            const newPwd = document.getElementById(`pwd_${userName}`).value.trim();
+            if (!newPwd) return alert("密码不能为空！");
+            const user = USER_LIST.find(u => u.name === userName);
+            user.pwd = newPwd;
+            saveToStorage('vote_system_user_list', USER_LIST);
+            alert(`${userName} 的密码已更新`);
+            renderAdminMemberList();
+        }
+        function addMember() {
+            const name = document.getElementById("newMember").value.trim();
+            const pwd = document.getElementById("newMemberPwd").value.trim() || "123456";
+            if (!name || ALL_MEMBERS.includes(name)) return alert("成员名称不能为空或已存在！");
+            ALL_MEMBERS.push(name);
+            USER_LIST.push({ name, pwd });
+            saveToStorage('vote_system_user_list', USER_LIST);
+            document.getElementById("newMember").value = "";
+            document.getElementById("newMemberPwd").value = "";
+            renderAdminMemberList();
+            initAllMemberSelects();
+            alert(`成员 ${name} 添加成功！初始密码：${pwd}`);
+        }
+        function deleteMember(name) {
+            if (name === ADMIN) return alert("不能删除管理员！");
+            if (!confirm(`确定删除成员 ${name}？`)) return;
+            ALL_MEMBERS = ALL_MEMBERS.filter(n => n !== name);
+            USER_LIST = USER_LIST.filter(u => u.name !== name);
+            projects = projects.filter(p => !p.members.includes(name));
+            saveToStorage('vote_system_user_list', USER_LIST);
+            saveToStorage('vote_system_projects', projects);
+            renderAdminMemberList();
+            initAllMemberSelects();
+            render();
+        }
+
+        // 管理员-作品管理
+        function renderAdminProjectList() {
+            const box = document.getElementById("adminProjectList");
+            box.innerHTML = "";
+            if (projects.length === 0) {
+                box.innerHTML = "<p>暂无作品</p>";
+                return;
+            }
+            projects.forEach(p => {
+                const div = document.createElement("div");
+                div.className = "admin-project-item";
+                div.innerHTML = `
+                    <div><strong>ID：</strong>${p.id} | <strong>标题：</strong>${p.title} | <strong>得分：</strong>${p.score}</div>
+                    <div><strong>成员：</strong>${p.members.join("、")}</div>
+                    <div><strong>视频路径：</strong>${p.video}</div>
+                    <div><video src="${p.video}" controls width="200"></video></div>
+                    <div class="admin-project-controls">
+                        <input type="text" id="editTitle_${p.id}" value="${p.title}" placeholder="修改标题">
+                        <input type="text" id="editPath_${p.id}" value="${p.video}" placeholder="修改视频路径">
+                        <button class="edit" onclick="adminEditProject(${p.id})">保存修改</button>
+                        <button class="danger" onclick="adminDeleteProject(${p.id})">删除作品</button>
+                    </div>
+                `;
+                box.appendChild(div);
+            });
+        }
+        function adminEditProject(projectId) {
+            const newTitle = document.getElementById(`editTitle_${projectId}`).value.trim();
+            const newPath = document.getElementById(`editPath_${projectId}`).value.trim();
+            if (!newTitle || !newPath) return alert("标题和路径不能为空！");
+            const project = projects.find(p => p.id === projectId);
+            project.title = newTitle;
+            project.video = newPath;
+            saveToStorage('vote_system_projects', projects);
+            alert("作品修改成功！");
+            renderAdminProjectList();
+            render();
+        }
+        function adminDeleteProject(projectId) {
+            if (!confirm("确定删除该作品？")) return;
+            projects = projects.filter(p => p.id !== projectId);
+            calcScores();
+            saveToStorage('vote_system_projects', projects);
+            alert("作品删除成功！");
+            renderAdminProjectList();
+            render();
+        }
+        function adminAddProject() {
+            const title = document.getElementById("adminProjectTitle").value.trim();
+            const videoPath = document.getElementById("adminVideoPath").value.trim();
+            if (!title || !videoPath || adminSelectedMembers.length === 0) {
+                return alert("请完善作品信息！");
+            }
+            const project = {
+                id: Date.now(),
+                title,
+                members: [...adminSelectedMembers],
+                video: videoPath,
+                score: 0
+            };
+            projects.push(project);
+            saveToStorage('vote_system_projects', projects);
+            alert("作品新增成功！");
+            document.getElementById("adminProjectTitle").value = "";
+            document.getElementById("adminVideoPath").value = "";
+            adminSelectedMembers = [];
+            renderAdminMemberTags();
+            renderAdminProjectList();
+            render();
+        }
+
+        // 管理员-投票记录
+        function renderAdminVoteRecords() {
+            const box = document.getElementById("adminVoteList");
+            box.innerHTML = "";
+            if (votes.length === 0) {
+                box.innerHTML = "<p>暂无投票记录</p>";
+                return;
+            }
+            votes.forEach(v => {
+                const p1 = projects.find(p => p.id == v.rank1);
+                const p2 = projects.find(p => p.id == v.rank2);
+                const p3 = projects.find(p => p.id == v.rank3);
+                const div = document.createElement("div");
+                div.className = "vote-record";
+                div.innerText = `投票人：${v.user} | 1名：${p1?.title||"已删除"} | 2名：${p2?.title||"已删除"} | 3名：${p3?.title||"已删除"}`;
+                box.appendChild(div);
+            });
+        }
+
+        // 全局渲染
+        function render() {
+            const loginBox = document.getElementById("loginBox");
+            const mainContent = document.getElementById("mainContent");
+            const adminPanel = document.getElementById("adminPanel");
+            document.getElementById("userName").innerText = currentUser;
+
+            if (currentUser) {
+                loginBox.classList.add("hidden");
+                mainContent.classList.remove("hidden");
+            } else {
+                loginBox.classList.remove("hidden");
+                mainContent.classList.add("hidden");
+                return;
+            }
+            adminPanel.classList.toggle("hidden", currentUser !== ADMIN);
+
+            const selfProjects = projects.filter(p => p.members.includes(currentUser));
+            const tipDom = document.getElementById("selfProjectTip");
+            if (selfProjects.length > 0) {
+                const titles = selfProjects.map(p => p.title).join("、");
+                tipDom.innerText = `｜ 你参与的作品：${titles}（全部不可投票）`;
+            } else {
+                tipDom.innerText = "｜ 未加入任何作品";
+            }
+
+            const selfIds = selfProjects.map(p => p.id);
+            [rank1, rank2, rank3].forEach(sel => {
+                sel.innerHTML = '<option value="">请选择作品</option>';
+                projects.forEach(p => {
+                    if (selfIds.includes(p.id)) return;
+                    const opt = document.createElement("option");
+                    opt.value = p.id;
+                    opt.innerText = p.title;
+                    sel.appendChild(opt);
+                });
+            });
+
+            const list = document.getElementById("projectList");
+            list.innerHTML = "";
+            projects.forEach(p => {
+                const isMyGroup = p.members.includes(currentUser);
+                const isAdmin = currentUser === ADMIN;
+                const div = document.createElement("div");
+                div.className = "project";
+                let memberText;
+                if (isAdmin) {
+                    memberText = `<p style="color:blue">管理员查看：${p.members.join("、")}</p>`;
+                } else if (isMyGroup) {
+                    memberText = `<p>成员：${p.members.join("、")}</p>`;
+                } else {
+                    memberText = `<p style="color:#666">成员：匿名小组</p>`;
+                }
+                div.innerHTML = `
+                    <h4>${p.title}</h4>
+                    ${memberText}
+                    <p><strong>视频路径：</strong>${p.video}</p>
+                    <video src="${p.video}" controls width="320"></video>
+                `;
+                list.appendChild(div);
+            });
+
+            const rankDiv = document.getElementById("rankResult");
+            rankDiv.innerHTML = "";
+            const sorted = [...projects].sort((a, b) => b.score - a.score);
+            sorted.forEach((p, idx) => {
+                const item = document.createElement("div");
+                item.innerText = `第${idx+1}名：${p.title} | 得分：${p.score}`;
+                rankDiv.appendChild(item);
+            });
+        }
+
+        // 页面初始化
+        render();
+    </script>
+</body>
+</html>
